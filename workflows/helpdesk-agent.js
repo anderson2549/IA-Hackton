@@ -52,10 +52,12 @@ const DEDUP_SCHEMA = {
 
 phase('Ingest')
 
+const basePath = args?.basePath || 'C:/Users/ander/IA-Hackton'
+
 const rawData = await agent(
   `Read these two local files and return their contents as JSON:
-   1. C:/Users/ander/IA-Hackton/mock-data/laravel-errors.json
-   2. C:/Users/ander/IA-Hackton/mock-data/api-endpoints.json
+   1. ${basePath}/mock-data/laravel-errors.json
+   2. ${basePath}/mock-data/api-endpoints.json
    Return: { errors: [...], endpoints: [...] }`,
   {
     label: 'load-data',
