@@ -52,37 +52,69 @@ const DEDUP_SCHEMA = {
 
 phase('Ingest')
 
-const basePath = args?.basePath || 'C:/Users/ander/IA-Hackton'
+const sentryOrg     = args?.sentryOrg     || 'tekton-as'
+const sentryProject = args?.sentryProject || 'php-laravel'
+const sentryRegion  = args?.sentryRegion  || 'https://us.sentry.io'
+const basePath      = args?.basePath      || 'C:/Users/ander/IA-Hackton'
 
-const rawData = await agent(
-  `Read these two local files and return their contents as JSON:
-   1. ${basePath}/mock-data/laravel-errors.json
-   2. ${basePath}/mock-data/api-endpoints.json
-   Return: { errors: [...], endpoints: [...] }`,
-  {
-    label: 'load-data',
-    model: 'haiku',
-    schema: {
-      type: 'object',
-      properties: {
-        errors:    { type: 'array' },
-        endpoints: { type: 'array' },
+// Load Sentry issues + API endpoints in parallel
+const [sentryData, endpointData] = await Promise.all([
+  agent(
+    `Use the search_issues Sentry tool to fetch unresolved errors from the project.
+     organizationSlug: "${sentryOrg}"
+     projectSlugOrId: "${sentryProject}"
+     regionUrl: "${sentryRegion}"
+     query: "is:unresolved level:error"
+     limit: 50
+
+     Return a JSON array of issues, each with:
+     - id: the Sentry issue ID (e.g. PHP-LARAVEL-3)
+     - fingerprint: the issue id (use as unique key)
+     - title: issue title
+     - message: full error message
+     - culprit: the culprit field
+     - times_seen: events count
+     - first_seen: firstSeen field
+     - last_seen: lastSeen field
+     - level: "ERROR"
+     Return: { issues: [...] }`,
+    {
+      label: 'load-sentry',
+      model: 'haiku',
+      schema: {
+        type: 'object',
+        properties: { issues: { type: 'array' } },
+        required: ['issues'],
       },
-      required: ['errors', 'endpoints'],
-    },
-  }
-)
+    }
+  ),
 
-const errors    = (rawData.errors    || []).filter(e => e.level === 'ERROR')
-const endpoints = rawData.endpoints  || []
+  agent(
+    `Read this file and return its contents as JSON:
+     ${basePath}/mock-data/api-endpoints.json
+     Return: { endpoints: [...] }`,
+    {
+      label: 'load-endpoints',
+      model: 'haiku',
+      schema: {
+        type: 'object',
+        properties: { endpoints: { type: 'array' } },
+        required: ['endpoints'],
+      },
+    }
+  ),
+])
 
-log(`Loaded ${errors.length} ERROR-level logs and ${endpoints.length} API endpoints`)
+const errors    = sentryData?.issues  || []
+const endpoints = endpointData?.endpoints || []
 
-// Dedup errors by fingerprint — only analyze one per error class
+log(`Loaded ${errors.length} unresolved errors from Sentry (${sentryOrg}/${sentryProject}) and ${endpoints.length} API endpoints`)
+
+// Dedup by fingerprint (Sentry already groups, but just in case)
 const uniqueErrors = Object.values(
   errors.reduce((acc, e) => { acc[e.fingerprint] = acc[e.fingerprint] || e; return acc }, {})
 )
-log(`${uniqueErrors.length} unique error fingerprints after dedup (${errors.length - uniqueErrors.length} duplicates skipped)`)
+log(`${uniqueErrors.length} unique issues to process`)
 
 // ─── Phase 2: Triage (parallel) ──────────────────────────────────────────────
 
@@ -92,19 +124,20 @@ const [analyzedErrors, apiStatuses] = await Promise.all([
   // Fan-out: analyze each unique error in parallel
   parallel(uniqueErrors.map(err => () =>
     agent(
-      `You are a senior backend engineer triaging a production error from a Laravel application.
-       Analyze this error and produce a JIRA-ready ticket analysis.
+      `You are a senior backend engineer triaging a production error from a Laravel application monitored by Sentry.
+       Analyze this Sentry issue and produce a JIRA-ready ticket analysis.
 
-       Error details:
+       Sentry issue:
        ${JSON.stringify(err, null, 2)}
 
        Rules:
-       - severity "critical" = data loss, auth broken, or DB down
-       - severity "high"     = core feature broken for users
-       - severity "medium"   = partial feature degraded
+       - severity "critical" = data loss, auth broken, DB down, or seen 10+ times
+       - severity "high"     = core feature broken, seen 3-9 times
+       - severity "medium"   = partial feature degraded, seen 1-2 times
        - severity "low"      = cosmetic / non-blocking
        - fingerprint must match: ${err.fingerprint}
-       - Title must be concise and actionable, max 80 chars`,
+       - Title format: "[Sentry ${err.id}] <short actionable description>" — max 80 chars
+       - Include Sentry issue URL in description: https://tekton-as.sentry.io/issues/${err.id}`,
       { label: `analyze:${err.fingerprint}`, phase: 'Triage', model: 'sonnet', schema: ERROR_ANALYSIS_SCHEMA }
     )
   )),
