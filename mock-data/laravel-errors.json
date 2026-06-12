@@ -1,0 +1,70 @@
+[
+  {
+    "id": "err_001",
+    "level": "ERROR",
+    "timestamp": "2026-06-11T10:23:45Z",
+    "message": "SQLSTATE[HY000] [2002] Connection refused",
+    "context": {
+      "service": "database",
+      "host": "db.internal",
+      "port": 3306
+    },
+    "file": "app/Repositories/UserRepository.php",
+    "line": 87,
+    "environment": "production",
+    "fingerprint": "db-connection-refused"
+  },
+  {
+    "id": "err_002",
+    "level": "ERROR",
+    "timestamp": "2026-06-11T10:24:10Z",
+    "message": "Call to undefined method App\\Services\\PaymentService::processRefund()",
+    "context": {
+      "service": "payments",
+      "user_id": 1042,
+      "amount": 150.00
+    },
+    "file": "app/Services/PaymentService.php",
+    "line": 203,
+    "environment": "production",
+    "fingerprint": "payment-undefined-method"
+  },
+  {
+    "id": "err_003",
+    "level": "ERROR",
+    "timestamp": "2026-06-11T10:24:55Z",
+    "message": "SQLSTATE[HY000] [2002] Connection refused",
+    "context": {
+      "service": "database",
+      "host": "db.internal",
+      "port": 3306
+    },
+    "file": "app/Models/Order.php",
+    "line": 45,
+    "environment": "production",
+    "fingerprint": "db-connection-refused"
+  },
+  {
+    "id": "err_004",
+    "level": "WARNING",
+    "timestamp": "2026-06-11T10:25:00Z",
+    "message": "Cache miss for key: user_profile_1042",
+    "context": { "service": "cache" },
+    "fingerprint": "cache-miss"
+  },
+  {
+    "id": "err_005",
+    "level": "ERROR",
+    "timestamp": "2026-06-11T10:25:30Z",
+    "message": "TokenMismatchException: CSRF token verification failed",
+    "context": {
+      "service": "auth",
+      "route": "/api/v1/orders",
+      "method": "POST"
+    },
+    "file": "app/Http/Middleware/VerifyCsrfToken.php",
+    "line": 67,
+    "environment": "production",
+    "fingerprint": "csrf-token-mismatch"
+  }
+]

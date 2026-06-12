@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__Jira__getAccessibleAtlassianResources",
+      "mcp__Jira__getVisibleJiraProjects",
+      "mcp__Jira__searchJiraIssuesUsingJql",
+      "WebFetch(domain:httpstat.us)",
+      "Bash(curl *)"
+    ]
+  }
+}
