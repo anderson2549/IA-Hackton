@@ -5,16 +5,29 @@ services:
       dockerfile: Dockerfile
     container_name: claude-ollama
     environment:
-      # Tu API key de Anthropic para Claude Code
+      # ── Anthropic ──────────────────────────────────────
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      # Modelo de Ollama a descargar al iniciar (opcional)
+
+      # ── Sentry ─────────────────────────────────────────
+      - SENTRY_AUTH_TOKEN=${SENTRY_AUTH_TOKEN}
+      - SENTRY_ORG=${SENTRY_ORG:-tekton-as}
+      - SENTRY_PROJECT=${SENTRY_PROJECT:-php-laravel}
+      - SENTRY_REGION=${SENTRY_REGION:-https://us.sentry.io}
+
+      # ── JIRA / Atlassian ───────────────────────────────
+      - JIRA_BASE_URL=${JIRA_BASE_URL}
+      - JIRA_EMAIL=${JIRA_EMAIL}
+      - JIRA_API_TOKEN=${JIRA_API_TOKEN}
+
+      # ── Ollama ─────────────────────────────────────────
       - OLLAMA_MODEL=${OLLAMA_MODEL:-llama3.2}
+
+      # ── Poner en "true" para ejecutar el workflow al iniciar
+      - RUN_WORKFLOW=${RUN_WORKFLOW:-false}
+
     volumes:
-      # Código fuente del proyecto
       - ../:/workspace
-      # Persistir modelos de Ollama entre reinicios
       - ollama_data:/root/.ollama
-      # Persistir configuración de Claude Code
       - claude_config:/root/.claude
     ports:
       - "11434:11434"

@@ -18,14 +18,22 @@ if [ -n "$OLLAMA_MODEL" ]; then
     ollama pull "$OLLAMA_MODEL"
 fi
 
-# Ejecutar comando pasado al contenedor o mantener vivo
+# Ejecutar workflow directamente si se pasó la flag
+if [ "${RUN_WORKFLOW:-false}" = "true" ]; then
+    chmod +x /workspace/docker/run-workflow.sh
+    exec /workspace/docker/run-workflow.sh
+fi
+
+# Ejecutar comando personalizado si se pasó
 if [ "$#" -gt 0 ]; then
     exec "$@"
-else
-    echo ""
-    echo "=== Claude Code + Ollama listo ==="
-    echo "  Ollama API: http://localhost:11434"
-    echo "  Claude Code: ejecuta 'claude' en el terminal"
-    echo ""
-    wait $OLLAMA_PID
 fi
+
+# Modo interactivo por defecto
+echo ""
+echo "=== Claude Code + Ollama listo ==="
+echo "  Ollama API : http://localhost:11434"
+echo "  Claude Code: ejecuta 'claude' en el terminal"
+echo "  Workflow   : ejecuta '/workspace/docker/run-workflow.sh'"
+echo ""
+wait $OLLAMA_PID

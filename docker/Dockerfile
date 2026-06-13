@@ -11,6 +11,7 @@ RUN apt-get update && apt-get install -y \
     gnupg \
     lsb-release \
     build-essential \
+    jq \
     && rm -rf /var/lib/apt/lists/*
 
 # Node.js 20 (requerido por Claude Code)
@@ -21,13 +22,18 @@ RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
 # Claude Code CLI
 RUN npm install -g @anthropic-ai/claude-code
 
+# MCP Servers para el workflow
+RUN npm install -g \
+    @sentry/mcp-server \
+    mcp-atlassian
+
 # Ollama
 RUN curl -fsSL https://ollama.com/install.sh | sh
 
-# Directorio de trabajo
 WORKDIR /workspace
 
 COPY entrypoint.sh /entrypoint.sh
+COPY claude-settings.json /root/.claude/settings.json
 RUN chmod +x /entrypoint.sh
 
 EXPOSE 11434
