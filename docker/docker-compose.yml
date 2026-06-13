@@ -5,8 +5,14 @@ services:
       dockerfile: Dockerfile
     container_name: claude-ollama
     environment:
-      # ── Anthropic ──────────────────────────────────────
+      # ── Proveedor LLM: "claude" (default) | "openai" ──
+      - LLM_PROVIDER=${LLM_PROVIDER:-claude}
+
+      # ── Anthropic (si LLM_PROVIDER=claude) ────────────
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+
+      # ── OpenAI (si LLM_PROVIDER=openai) ───────────────
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
 
       # ── Sentry ─────────────────────────────────────────
       - SENTRY_AUTH_TOKEN=${SENTRY_AUTH_TOKEN}

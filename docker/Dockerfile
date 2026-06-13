@@ -22,10 +22,13 @@ RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
 # Claude Code CLI
 RUN npm install -g @anthropic-ai/claude-code
 
-# MCP Servers para el workflow
+# MCP Servers (para variante Claude Code)
 RUN npm install -g \
     @sentry/mcp-server \
     mcp-atlassian
+
+# OpenAI SDK (para variante OpenAI)
+RUN npm install -g openai
 
 # Ollama
 RUN curl -fsSL https://ollama.com/install.sh | sh
