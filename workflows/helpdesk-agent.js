@@ -55,62 +55,42 @@ phase('Ingest')
 const sentryOrg     = args?.sentryOrg     || 'tekton-as'
 const sentryProject = args?.sentryProject || 'php-laravel'
 const sentryRegion  = args?.sentryRegion  || 'https://us.sentry.io'
-const basePath      = args?.basePath      || 'C:/Users/ander/IA-Hackton'
+const runTimestamp  = args?.runTimestamp  || 'this run'
 
-// Load Sentry issues + API endpoints in parallel
-const [sentryData, endpointData] = await Promise.all([
-  agent(
-    `Use the search_issues Sentry tool to fetch unresolved errors from the project.
-     organizationSlug: "${sentryOrg}"
-     projectSlugOrId: "${sentryProject}"
-     regionUrl: "${sentryRegion}"
-     query: "is:unresolved level:error"
-     limit: 50
+// Load unresolved errors directly from Sentry
+const sentryData = await agent(
+  `Use the search_issues Sentry tool to fetch unresolved errors from the project.
+   organizationSlug: "${sentryOrg}"
+   projectSlugOrId: "${sentryProject}"
+   regionUrl: "${sentryRegion}"
+   query: "is:unresolved level:error"
+   limit: 50
 
-     Return a JSON array of issues, each with:
-     - id: the Sentry issue ID (e.g. PHP-LARAVEL-3)
-     - fingerprint: the issue id (use as unique key)
-     - title: issue title
-     - message: full error message
-     - culprit: the culprit field
-     - times_seen: events count
-     - first_seen: firstSeen field
-     - last_seen: lastSeen field
-     - level: "ERROR"
-     Return: { issues: [...] }`,
-    {
-      label: 'load-sentry',
-      model: 'haiku',
-      schema: {
-        type: 'object',
-        properties: { issues: { type: 'array' } },
-        required: ['issues'],
-      },
-    }
-  ),
+   Return each issue with:
+   - id: Sentry issue ID (e.g. PHP-LARAVEL-3)
+   - fingerprint: same as id (unique key)
+   - title: issue title
+   - message: full error message
+   - culprit: culprit field
+   - times_seen: events count
+   - first_seen, last_seen
+   Return: { issues: [...] }`,
+  {
+    label: 'load-sentry',
+    model: 'haiku',
+    schema: {
+      type: 'object',
+      properties: { issues: { type: 'array' } },
+      required: ['issues'],
+    },
+  }
+)
 
-  agent(
-    `Read this file and return its contents as JSON:
-     ${basePath}/mock-data/api-endpoints.json
-     Return: { endpoints: [...] }`,
-    {
-      label: 'load-endpoints',
-      model: 'haiku',
-      schema: {
-        type: 'object',
-        properties: { endpoints: { type: 'array' } },
-        required: ['endpoints'],
-      },
-    }
-  ),
-])
+const errors    = sentryData?.issues || []
+const endpoints = []
 
-const errors    = sentryData?.issues  || []
-const endpoints = endpointData?.endpoints || []
+log(`Loaded ${errors.length} unresolved errors from Sentry (${sentryOrg}/${sentryProject})`)
 
-log(`Loaded ${errors.length} unresolved errors from Sentry (${sentryOrg}/${sentryProject}) and ${endpoints.length} API endpoints`)
-
-// Dedup by fingerprint (Sentry already groups, but just in case)
 const uniqueErrors = Object.values(
   errors.reduce((acc, e) => { acc[e.fingerprint] = acc[e.fingerprint] || e; return acc }, {})
 )
@@ -121,7 +101,6 @@ log(`${uniqueErrors.length} unique issues to process`)
 phase('Triage')
 
 const [analyzedErrors, apiStatuses] = await Promise.all([
-  // Fan-out: analyze each unique error in parallel
   parallel(uniqueErrors.map(err => () =>
     agent(
       `You are a senior backend engineer triaging a production error from a Laravel application monitored by Sentry.
@@ -142,22 +121,7 @@ const [analyzedErrors, apiStatuses] = await Promise.all([
     )
   )),
 
-  // Fan-out: check each API endpoint health in parallel
-  parallel(endpoints.map(ep => () =>
-    agent(
-      `You are a monitoring agent checking API health for a production system.
-       Check this API endpoint using the fetch tool and report its status.
-
-       Endpoint: ${JSON.stringify(ep)}
-
-       Use fetch to GET the URL. Determine:
-       - healthy: true if HTTP 2xx, false otherwise
-       - status: the HTTP status code and text
-       - jira_needed: true if critical=true AND unhealthy
-       - title: if jira_needed, write a short JIRA title like "[API DOWN] Payments API returning 503"`,
-      { label: `monitor:${ep.name}`, phase: 'Triage', model: 'haiku', schema: API_STATUS_SCHEMA }
-    )
-  )),
+  Promise.resolve([]),
 ])
 
 const validErrors = analyzedErrors.filter(Boolean)
@@ -235,7 +199,7 @@ const created = await parallel([
     agent(
       `Add a comment to existing JIRA issue ${item.dedup.issue_key} using addCommentToJiraIssue.
 
-       Comment: "🔄 *Recurrence detected by helpdesk-agent* — ${new Date().toISOString()}
+       Comment: "🔄 *Recurrence detected by helpdesk-agent* — ${runTimestamp}
        Error class: ${item.data.fingerprint || item.data.name}
        This issue has been observed again in production. Please review and update status."`,
       { label: `update-jira:${item.dedup.issue_key}`, phase: 'Act', model: 'haiku' }

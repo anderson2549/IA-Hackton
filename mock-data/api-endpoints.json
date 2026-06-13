@@ -1,6 +1,0 @@
-[
-  { "name": "Auth API",      "url": "https://httpstat.us/200", "critical": true },
-  { "name": "Payments API",  "url": "https://httpstat.us/503", "critical": true },
-  { "name": "Reports API",   "url": "https://httpstat.us/200", "critical": false },
-  { "name": "Notifications", "url": "https://httpstat.us/200", "critical": false }
-]

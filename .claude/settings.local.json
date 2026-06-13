@@ -5,7 +5,13 @@
       "mcp__Jira__getVisibleJiraProjects",
       "mcp__Jira__searchJiraIssuesUsingJql",
       "WebFetch(domain:httpstat.us)",
-      "Bash(curl *)"
+      "Bash(curl *)",
+      "mcp__Jira__getTransitionsForJiraIssue",
+      "mcp__Jira__transitionJiraIssue",
+      "mcp__sentry__find_organizations",
+      "mcp__sentry__search_issues",
+      "mcp__sentry__find_projects",
+      "WebFetch(domain:docs.ollama.com)"
     ]
   }
 }
