@@ -1,0 +1,34 @@
+services:
+  claude-ollama:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: claude-ollama
+    environment:
+      # Tu API key de Anthropic para Claude Code
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      # Modelo de Ollama a descargar al iniciar (opcional)
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-llama3.2}
+    volumes:
+      # Código fuente del proyecto
+      - ../:/workspace
+      # Persistir modelos de Ollama entre reinicios
+      - ollama_data:/root/.ollama
+      # Persistir configuración de Claude Code
+      - claude_config:/root/.claude
+    ports:
+      - "11434:11434"
+    stdin_open: true
+    tty: true
+    # Para GPU NVIDIA (opcional, descomentar si tienes GPU)
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+
+volumes:
+  ollama_data:
+  claude_config:
