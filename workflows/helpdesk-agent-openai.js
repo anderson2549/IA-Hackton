@@ -3,7 +3,22 @@ import OpenAI from 'openai'
 
 // ─── Config ──────────────────────────────────────────────────────────────────
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+// ─── Provider ────────────────────────────────────────────────────────────────
+// LLM_PROVIDER=openai  → OpenAI API  (gpt-4o / gpt-4o-mini)
+// LLM_PROVIDER=ollama  → Ollama local (API compatible con OpenAI en puerto 11434)
+
+const LLM_PROVIDER = process.env.LLM_PROVIDER || 'openai'
+
+const OLLAMA_HOST = process.env.OLLAMA_HOST || 'http://localhost:11434'
+
+// Modelos Ollama configurables (default: llama3.2 para todo)
+// Para análisis complejo se puede usar un modelo más grande
+const OLLAMA_MODEL_FAST = process.env.OLLAMA_MODEL_FAST || process.env.OLLAMA_MODEL || 'llama3.2'
+const OLLAMA_MODEL_FULL = process.env.OLLAMA_MODEL_FULL || process.env.OLLAMA_MODEL || 'llama3.2'
+
+const openai = LLM_PROVIDER === 'ollama'
+  ? new OpenAI({ baseURL: `${OLLAMA_HOST}/v1`, apiKey: 'ollama' })
+  : new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
 const SENTRY_AUTH_TOKEN = process.env.SENTRY_AUTH_TOKEN
 const SENTRY_ORG        = process.env.SENTRY_ORG        || 'tekton-as'
@@ -14,11 +29,13 @@ const JIRA_EMAIL        = process.env.JIRA_EMAIL
 const JIRA_API_TOKEN    = process.env.JIRA_API_TOKEN
 const BASE_PATH         = process.env.BASE_PATH         || '/workspace'
 
-// ─── Model map (Claude → OpenAI) ─────────────────────────────────────────────
-// haiku  → gpt-4o-mini  (rápido y barato)
-// sonnet → gpt-4o       (más capaz)
+// ─── Model map ───────────────────────────────────────────────────────────────
+// haiku  = tarea rápida/barata  →  gpt-4o-mini  |  ollama modelo pequeño
+// sonnet = tarea compleja       →  gpt-4o        |  ollama modelo grande
 
-const MODEL = { haiku: 'gpt-4o-mini', sonnet: 'gpt-4o' }
+const MODEL = LLM_PROVIDER === 'ollama'
+  ? { haiku: OLLAMA_MODEL_FAST, sonnet: OLLAMA_MODEL_FULL }
+  : { haiku: 'gpt-4o-mini',    sonnet: 'gpt-4o' }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -26,17 +43,35 @@ function log(msg) { console.log(`[LOG] ${msg}`) }
 function phase(name) { console.log(`\n${'─'.repeat(60)}\n  Phase: ${name}\n${'─'.repeat(60)}`) }
 
 async function agent(prompt, { model = 'haiku', label = '' } = {}) {
-  const oaiModel = MODEL[model] || model
-  log(`agent:${label || oaiModel} → ${oaiModel}`)
-  const res = await openai.chat.completions.create({
-    model: oaiModel,
-    messages: [{ role: 'user', content: prompt }],
-    response_format: { type: 'json_object' },
-  })
+  const resolvedModel = MODEL[model] || model
+  log(`agent:${label || resolvedModel} → ${LLM_PROVIDER}/${resolvedModel}`)
+
+  // Ollama no soporta response_format:json_object en todos los modelos,
+  // así que instruimos el formato en el propio prompt.
+  const systemMsg = LLM_PROVIDER === 'ollama'
+    ? 'Responde SOLO con un objeto JSON válido, sin texto adicional ni markdown.'
+    : null
+
+  const messages = [
+    ...(systemMsg ? [{ role: 'system', content: systemMsg }] : []),
+    { role: 'user', content: prompt },
+  ]
+
+  const requestParams = {
+    model: resolvedModel,
+    messages,
+    ...(LLM_PROVIDER !== 'ollama' && { response_format: { type: 'json_object' } }),
+  }
+
+  const res = await openai.chat.completions.create(requestParams)
+  const content = res.choices[0].message.content
+
+  // Extraer JSON aunque el modelo devuelva texto extra
   try {
-    return JSON.parse(res.choices[0].message.content)
+    const match = content.match(/\{[\s\S]*\}/)
+    return match ? JSON.parse(match[0]) : JSON.parse(content)
   } catch {
-    return res.choices[0].message.content
+    return content
   }
 }
 

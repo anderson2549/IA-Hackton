@@ -5,8 +5,8 @@ services:
       dockerfile: Dockerfile
     container_name: claude-ollama
     environment:
-      # ── Proveedor LLM: "claude" (default) | "openai" ──
-      - LLM_PROVIDER=${LLM_PROVIDER:-claude}
+      # ── Proveedor LLM: "claude" | "openai" | "ollama" ─
+      - LLM_PROVIDER=${LLM_PROVIDER:-ollama}
 
       # ── Anthropic (si LLM_PROVIDER=claude) ────────────
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
@@ -26,7 +26,10 @@ services:
       - JIRA_API_TOKEN=${JIRA_API_TOKEN}
 
       # ── Ollama ─────────────────────────────────────────
+      - OLLAMA_HOST=http://localhost:11434
       - OLLAMA_MODEL=${OLLAMA_MODEL:-llama3.2}
+      - OLLAMA_MODEL_FAST=${OLLAMA_MODEL_FAST:-llama3.2}
+      - OLLAMA_MODEL_FULL=${OLLAMA_MODEL_FULL:-llama3.1:8b}
 
       # ── Poner en "true" para ejecutar el workflow al iniciar
       - RUN_WORKFLOW=${RUN_WORKFLOW:-false}

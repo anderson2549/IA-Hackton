@@ -12,11 +12,15 @@ until curl -s http://localhost:11434/api/tags > /dev/null 2>&1; do
 done
 echo "Ollama listo en http://localhost:11434"
 
-# Descargar modelo por defecto si se especificó
-if [ -n "$OLLAMA_MODEL" ]; then
-    echo "Descargando modelo: $OLLAMA_MODEL"
-    ollama pull "$OLLAMA_MODEL"
-fi
+# Descargar modelos necesarios (sin duplicados)
+declare -A pulled
+for MODEL_VAR in "$OLLAMA_MODEL" "$OLLAMA_MODEL_FAST" "$OLLAMA_MODEL_FULL"; do
+    if [ -n "$MODEL_VAR" ] && [ -z "${pulled[$MODEL_VAR]}" ]; then
+        echo "Descargando modelo: $MODEL_VAR"
+        ollama pull "$MODEL_VAR"
+        pulled[$MODEL_VAR]=1
+    fi
+done
 
 # Ejecutar workflow directamente si se pasó la flag
 if [ "${RUN_WORKFLOW:-false}" = "true" ]; then
